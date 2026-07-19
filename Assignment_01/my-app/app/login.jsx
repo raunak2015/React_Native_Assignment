@@ -1,11 +1,6 @@
 import React, { useState } from "react";
-import {
-  StyleSheet,
-  Text,
-  View,
-  TextInput,
-  Pressable,
-} from "react-native";
+import { StyleSheet, Text, View, TextInput, Pressable, } from "react-native";
+import { router } from "expo-router";
 
 const Login = () => {
   const [username, setUsername] = useState("");
@@ -15,6 +10,7 @@ const Login = () => {
     if (username === "admin" && password === "admin@123") {
       alert("Login Successful");
       console.log("Login Successful");
+      router.replace("/(tabs)");
     } else {
       alert("Invalid Login");
       console.log("Invalid Login");
