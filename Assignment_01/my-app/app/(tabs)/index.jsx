@@ -8,6 +8,7 @@ export default function HomeScreen() {
   const [latitude, setLatitude] = useState(null);
   const [longitude, setLongitude] = useState(null);
   const [address, setAddress] = useState("");
+  const [currentDateTime, setCurrentDateTime] = useState(new Date());
 
   const getLocation = async () => {
     const { status } = await Location.requestForegroundPermissionsAsync();
@@ -39,6 +40,12 @@ export default function HomeScreen() {
 
   useEffect(() => {
     getLocation();
+
+    const interval = setInterval(() => {
+    setCurrentDateTime(new Date());
+  }, 1000);
+
+  return () => clearInterval(interval);
   }, []);
   return (
     <ScrollView style={styles.container}>
@@ -51,10 +58,10 @@ export default function HomeScreen() {
       {/* Date & Time */}
       <View style={styles.card}>
         <Text style={styles.heading}>📅 -Date</Text>
-        <Text>19/07/2026</Text>
+        <Text style={styles.value}>{currentDateTime.toLocaleDateString()}</Text>
 
         <Text style={[styles.heading, { marginTop: 15 }]}>🕒 Time</Text>
-        <Text>08:45 PM</Text>
+        <Text style={styles.value}>{currentDateTime.toLocaleTimeString()}</Text>
       </View>
 
       {/* Location */}
