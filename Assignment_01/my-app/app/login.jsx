@@ -1,5 +1,5 @@
-import React, { useState } from "react";
-import { StyleSheet, Text, View, TextInput, Pressable, } from "react-native";
+﻿import React, { useState } from "react";
+import { StyleSheet, Text, View, TextInput, Pressable } from "react-native";
 import { router } from "expo-router";
 
 const Login = () => {
@@ -8,20 +8,19 @@ const Login = () => {
 
   const handleLogin = () => {
     if (username === "admin" && password === "admin@123") {
-      alert("Login Successful");
-      console.log("Login Successful");
-      router.replace("/(tabs)");
+      router.replace({
+        pathname: "/(tabs)",
+        params: { user: username },
+      });
     } else {
-      alert("Invalid Login");
-      console.log("Invalid Login");
-
+      alert("Invalid login");
     }
   };
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Employee Attendance</Text>
-      <Text style={styles.subtitle}>Login to continue</Text>
+      <Text style={styles.title}>Employee Field Visit</Text>
+      <Text style={styles.subtitle}>Login to mark attendance</Text>
 
       <TextInput
         placeholder="Username"
@@ -52,48 +51,43 @@ export default Login;
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#F5F7FA",
+    backgroundColor: "#F4F6F8",
     justifyContent: "center",
-    paddingHorizontal: 25,
+    padding: 24,
   },
-
   title: {
-    fontSize: 30,
+    fontSize: 28,
     fontWeight: "bold",
-    color: "#1E3A8A",
+    color: "#1E40AF",
     textAlign: "center",
   },
-
   subtitle: {
-    textAlign: "center",
-    color: "#666",
-    marginTop: 8,
-    marginBottom: 35,
     fontSize: 16,
+    color: "#475569",
+    textAlign: "center",
+    marginTop: 8,
+    marginBottom: 28,
   },
-
   input: {
     backgroundColor: "#fff",
     borderWidth: 1,
-    borderColor: "#D1D5DB",
+    borderColor: "#CBD5E1",
     borderRadius: 12,
-    paddingHorizontal: 15,
+    paddingHorizontal: 16,
     paddingVertical: 14,
+    marginBottom: 16,
     fontSize: 16,
-    marginBottom: 18,
+    color: "#111827",
   },
-
   button: {
     backgroundColor: "#2563EB",
-    paddingVertical: 15,
+    paddingVertical: 16,
     borderRadius: 12,
     alignItems: "center",
-    marginTop: 10,
   },
-
   buttonText: {
     color: "#fff",
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: "bold",
   },
 });

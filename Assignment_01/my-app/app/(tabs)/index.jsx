@@ -1,107 +1,150 @@
-import React, { useState, useEffect } from "react";
-import { View, Text, StyleSheet, Pressable, ScrollView, } from "react-native";
+import React, { useEffect, useState } from "react";
+import { View, Text, StyleSheet, Pressable, ScrollView, Image, Alert } from "react-native";
 import * as Location from "expo-location";
-import { router } from "expo-router";
-
+import MapComponent from "@/components/MapComponent";
+import { router, useLocalSearchParams } from "expo-router";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 export default function HomeScreen() {
-  const [latitude, setLatitude] = useState(null);
-  const [longitude, setLongitude] = useState(null);
-  const [address, setAddress] = useState("");
-  const [currentDateTime, setCurrentDateTime] = useState(new Date());
+  // useState hooks manage variables that reactively update the UI when they change.
+  // 1. region stores latitude, longitude, and zoom details for the MapView.
+  const [region, setRegion] = useState(null);
+  // 2. get the username passed from the Login screen (or default to "Admin").
+  const { user } = useLocalSearchParams();
+  // 3. address stores the reverse geocoded human-readable address.
+  const [address, setAddress] = useState("Fetching address...");
+  // 4. dateTime stores the current date and time (updated every second).
+  const [dateTime, setDateTime] = useState(new Date());
+  const name = typeof user === "string" && user ? user : "Admin";
+  // 5. image stores the file path (URI) of the selfie captured.
+  const [image, setImage] = useState(null);
 
-  const getLocation = async () => {
-    const { status } = await Location.requestForegroundPermissionsAsync();
+  // useEffect hook to fetch current GPS location and update the date/time clock.
+  useEffect(() => {
+    (async () => {
+      try {
+        // Request GPS location permission from the device
+        const { status } = await Location.requestForegroundPermissionsAsync();
+        if (status !== "granted") {
+          Alert.alert("Permission to access location was denied");
+          return;
+        }
 
-    if (status !== "granted") {
-      console.log("Permission to access location was denied");
+        // Get actual current GPS coordinates (high accuracy)
+        const location = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Highest });
+        const lat = location.coords.latitude;
+        const lon = location.coords.longitude;
+
+        // Set the map region coordinates
+        setRegion({ latitude: lat, longitude: lon, latitudeDelta: 0.01, longitudeDelta: 0.01 });
+
+        // Convert GPS latitude & longitude into a readable physical address
+        const geocode = await Location.reverseGeocodeAsync({ latitude: lat, longitude: lon });
+        const place = geocode[0] || {};
+        setAddress(`${place.street ?? ""}${place.street ? ", " : ""}${place.city ?? ""}${place.city ? ", " : ""}${place.region ?? ""}${place.country ? ", " : ""}${place.country ?? ""}`);
+      } catch (error) {
+        Alert.alert("Error fetching location", error.message);
+      }
+    })();
+
+    // Set an interval timer to update the date & time clock every 1 second (1000ms)
+    const timer = setInterval(() => setDateTime(new Date()), 1000);
+    
+    // Clear the timer when the screen is closed to prevent memory leaks
+    return () => clearInterval(timer);
+  }, []);
+
+  // useEffect hook to load the captured selfie image when the screen is shown
+  useEffect(() => {
+    const loadImage = async () => {
+      try {
+        // Fetch saved photo URI from device AsyncStorage memory
+        const uri = await AsyncStorage.getItem("selfie");
+        if (uri) {
+          setImage(uri);
+        }
+      } catch (error) {
+        console.error("Error loading image", error);
+      }
+    };
+
+    // Reload the image every time this screen gains focus (e.g. returning from Camera)
+    const unsubscribe = router.addListener?.("focus", loadImage);
+
+    loadImage();
+
+    return () => {
+      if (unsubscribe) unsubscribe();
+    };
+  }, []);
+
+  // handleSubmit runs when the employee clicks the "Submit Attendance" button
+  const handleSubmit = () => {
+    // 1. Validation: check if location has loaded and selfie has been taken
+    if (!region || !image) {
+      Alert.alert("Incomplete", "Please make sure you have allowed location and taken a selfie.");
       return;
     }
-    const location = await Location.getCurrentPositionAsync({
-      accuracy: Location.Accuracy.Highest,
-    });
-    setLatitude(location.coords.latitude);
-    setLongitude(location.coords.longitude);
-    const reverseGeocode = await Location.reverseGeocodeAsync({
-      latitude: location.coords.latitude,
-      longitude: location.coords.longitude,
-    });
 
-    if (!reverseGeocode || reverseGeocode.length === 0) {
-      setAddress("Address unavailable");
-      return;
-    }
+    // 2. Prepare the details message containing Name, Location Address, and Current Time
+    const details = `Name: ${name}\nLocation: ${address}\nDate: ${dateTime.toLocaleDateString()}\nTime: ${dateTime.toLocaleTimeString()}`;
 
-    const place = reverseGeocode[0];
-    setAddress(
-      `${place.street ?? ""}${place.street ? ", " : ""}${place.city ?? ""}${place.city ? ", " : ""}${place.region ?? ""}${place.country ? ", " : ""}${place.country ?? ""}`
-    );
+    // 3. Show the submission popup with the details
+    Alert.alert("Attendance Submitted Successfully", details);
   };
 
-  useEffect(() => {
-    getLocation();
-
-    const interval = setInterval(() => {
-    setCurrentDateTime(new Date());
-  }, 1000);
-
-  return () => clearInterval(interval);
-  }, []);
   return (
-    <ScrollView style={styles.container}>
-      {/* Header */}
+    <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
       <View style={styles.header}>
-        <Text style={styles.title}>Welcome Admin</Text>
-        <Text style={styles.subtitle}>Employee Attendance</Text>
+        <Text style={styles.title}>Employee Field Visit</Text>
+        <Text style={styles.subtitle}>{`Hello ${name}`}</Text>
       </View>
 
-      {/* Date & Time */}
       <View style={styles.card}>
-        <Text style={styles.heading}>📅 -Date</Text>
-        <Text style={styles.value}>{currentDateTime.toLocaleDateString()}</Text>
-
-        <Text style={[styles.heading, { marginTop: 15 }]}>🕒 Time</Text>
-        <Text style={styles.value}>{currentDateTime.toLocaleTimeString()}</Text>
+        <Text style={styles.label}>Date</Text>
+        <Text style={styles.value}>{dateTime.toLocaleDateString()}</Text>
+        <Text style={[styles.label, styles.gapTop]}>Time</Text>
+        <Text style={styles.value}>{dateTime.toLocaleTimeString()}</Text>
       </View>
 
-      {/* Location */}
       <View style={styles.card}>
-        <Text style={styles.heading}>📍 Current Location</Text>
-
         <Text style={styles.label}>Latitude</Text>
-        <Text style={styles.value}>{latitude !== null ? latitude : "Loading..."}</Text>
-
-        <Text style={styles.label}>Longitude</Text>
-        <Text style={styles.value}>{longitude !== null ? longitude : "Loading..."}</Text>
-
-        <Text style={styles.label}>Address</Text>
-        <Text style={styles.value}>{address || "Waiting for location..."}</Text>
+        <Text style={styles.value}>{region ? region.latitude : "Loading..."}</Text>
+        <Text style={[styles.label, styles.gapTop]}>Longitude</Text>
+        <Text style={styles.value}>{region ? region.longitude : "Loading..."}</Text>
+        <Text style={[styles.label, styles.gapTop]}>Address</Text>
+        <Text style={styles.value}>{address}</Text>
       </View>
 
-      {/* Selfie */}
       <View style={styles.card}>
-        <Text style={styles.heading}>📷 Selfie</Text>
-
-        <View style={styles.imagePlaceholder}>
-          <Text>No Image</Text>
+        <Text style={styles.label}>Selfie</Text>
+        <View style={styles.selfieBox}>
+          {image ? (
+            <Image source={{ uri: image }} style={styles.selfie} />
+          ) : (
+            <Text style={styles.placeholder}>No selfie yet</Text>
+          )}
         </View>
-
-        <Pressable style={styles.button}>
-          <Text style={styles.buttonText}>Take Selfie</Text>
+        <Pressable
+          style={styles.button}
+          onPress={() => router.push("/camera")}
+        >
+          <Text style={styles.buttonText}>
+            {image ? "Retake Selfie" : "Take Selfie"}
+          </Text>
         </Pressable>
       </View>
 
-      {/* Map */}
       <View style={styles.card}>
-        <Text style={styles.heading}>🗺️ Map</Text>
-
-        <View style={styles.mapPlaceholder}>
-          <Text>Map will appear here</Text>
-        </View>
+        <Text style={styles.label}>Map</Text>
+        {region ? (
+          <MapComponent region={region} style={styles.map} />
+        ) : (
+          <Text style={styles.placeholder}>Loading map...</Text>
+        )}
       </View>
 
-      {/* Submit */}
-      <Pressable style={styles.submitButton}>
+      <Pressable style={styles.submitButton} onPress={handleSubmit}>
         <Text style={styles.submitText}>Submit Attendance</Text>
       </Pressable>
     </ScrollView>
@@ -113,96 +156,89 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: "#F4F6F9",
   },
-
+  contentContainer: {
+    paddingBottom: 30,
+  },
   header: {
     padding: 20,
-    alignItems: "center",
   },
-
   title: {
-    fontSize: 28,
+    fontSize: 26,
     fontWeight: "bold",
     color: "#1E3A8A",
   },
-
   subtitle: {
-    fontSize: 18,
-    color: "#666",
-    marginTop: 5,
+    marginTop: 4,
+    color: "#475569",
   },
-
   card: {
     backgroundColor: "#fff",
-    marginHorizontal: 15,
+    marginHorizontal: 16,
     marginBottom: 18,
-    borderRadius: 12,
-    padding: 15,
-    elevation: 3,
+    borderRadius: 14,
+    padding: 16,
+    shadowColor: "#000",
+    shadowOpacity: 0.05,
+    shadowRadius: 10,
+    elevation: 2,
   },
-
-  heading: {
-    fontSize: 18,
-    fontWeight: "bold",
-    marginBottom: 12,
-    color: "#1E3A8A",
-  },
-
   label: {
+    fontSize: 14,
     fontWeight: "600",
-    marginTop: 8,
+    color: "#334155",
   },
-
   value: {
-    color: "#555",
-    marginTop: 3,
+    marginTop: 8,
+    fontSize: 16,
+    color: "#0F172A",
   },
-
-  imagePlaceholder: {
-    height: 180,
-    borderWidth: 1,
-    borderColor: "#ccc",
-    borderStyle: "dashed",
-    borderRadius: 10,
-    justifyContent: "center",
-    alignItems: "center",
-    marginBottom: 15,
+  gapTop: {
+    marginTop: 14,
   },
-
-  mapPlaceholder: {
+  selfieBox: {
     height: 220,
     borderWidth: 1,
-    borderColor: "#ccc",
-    borderStyle: "dashed",
-    borderRadius: 10,
+    borderColor: "#CBD5E1",
+    borderRadius: 14,
     justifyContent: "center",
     alignItems: "center",
+    backgroundColor: "#F8FAFC",
+    marginTop: 12,
+    marginBottom: 12,
   },
-
+  selfie: {
+    width: 200,
+    height: 200,
+    borderRadius: 14,
+  },
+  placeholder: {
+    color: "#94A3B8",
+  },
+  map: {
+    height: 220,
+    borderRadius: 14,
+  },
   button: {
     backgroundColor: "#2563EB",
-    padding: 12,
-    borderRadius: 10,
-    alignItems: "center",
-  },
-
-  buttonText: {
-    color: "#fff",
-    fontSize: 16,
-    fontWeight: "bold",
-  },
-
-  submitButton: {
-    backgroundColor: "#16A34A",
-    marginHorizontal: 15,
-    marginBottom: 30,
-    padding: 15,
+    paddingVertical: 14,
     borderRadius: 12,
     alignItems: "center",
   },
-
+  buttonText: {
+    color: "#fff",
+    fontWeight: "bold",
+    fontSize: 16,
+  },
+  submitButton: {
+    backgroundColor: "#16A34A",
+    marginHorizontal: 16,
+    paddingVertical: 14,
+    borderRadius: 14,
+    alignItems: "center",
+  },
   submitText: {
     color: "#fff",
-    fontSize: 18,
     fontWeight: "bold",
+    fontSize: 16,
   },
 });
